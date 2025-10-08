@@ -8,7 +8,7 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-# Global state
+
 vms = []
 tasks = []
 completed_tasks = []
@@ -65,7 +65,7 @@ class Task:
             'status': self.status
         }
 
-# API Endpoints
+
 
 @app.route('/')
 def index():
@@ -205,15 +205,14 @@ def get_statistics():
         'avg_turnaround_time': round(avg_turnaround, 2),
         'cpu_utilization': round(cpu_util, 2),
         'ram_utilization': round(ram_util, 2),
-        'utilization_history': utilization_history[-50:]  # Last 50 data points
+        'utilization_history': utilization_history[-50:]  
     })
 
-# Simulation Logic
+
 
 def run_simulation(scheduler):
     global current_time, is_simulating, tasks, completed_tasks, utilization_history
-    
-    # Sort tasks based on scheduler
+
     pending_tasks = [t for t in tasks if t.status == 'pending']
     
     if scheduler == 'fcfs':
@@ -223,9 +222,7 @@ def run_simulation(scheduler):
     
     while is_simulating:
         current_time += 0.1
-        time.sleep(0.1)  # Real-time simulation
-        
-        # Check for completed tasks
+        time.sleep(0.1)  
         for vm in vms:
             if vm.current_task and current_time >= vm.current_task.end_time:
                 task = vm.current_task
@@ -237,7 +234,7 @@ def run_simulation(scheduler):
                 vm.available_ram += task.ram_required
                 vm.current_task = None
         
-        # Assign pending tasks to available VMs
+     
         for task in pending_tasks[:]:
             if task.status == 'pending':
                 available_vm = next(
@@ -257,7 +254,7 @@ def run_simulation(scheduler):
                     available_vm.available_cores -= task.cpu_required
                     available_vm.available_ram -= task.ram_required
         
-        # Record utilization
+ 
         if vms:
             total_cpu = sum(vm.total_cores for vm in vms)
             used_cpu = sum((vm.total_cores - vm.available_cores) for vm in vms)
@@ -270,10 +267,11 @@ def run_simulation(scheduler):
                 'ram': round((used_ram / total_ram) * 100, 2) if total_ram > 0 else 0
             })
         
-        # Stop if all tasks completed
+  
         if all(t.status == 'completed' for t in tasks) and not pending_tasks:
             is_simulating = False
             break
 
 if __name__ == '_main_':
+
     app.run(debug=True, port=5000, threaded=True)
