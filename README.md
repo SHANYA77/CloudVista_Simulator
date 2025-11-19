@@ -249,10 +249,10 @@ CREATE TABLE tasks (
 
 ##  Authors
 
-- Aanchal Singh - Backend and Scheduling(Partial) - [YourGitHub](https://github.com/yourusername)
-   Aanchal Singh - Backend and Scheduling(Partial) - [YourGitHub](https://github.com/yourusername)
-     Aanchal Singh - Backend and Scheduling(Partial) - [YourGitHub](https://github.com/yourusername)
-    -  Aanchal Singh - Backend and Scheduling(Partial) - [YourGitHub](https://github.com/yourusername)
+- Aanchal Singh - Backend and Scheduling(Partial)                - [YourGitHub](https://github.com/yourusername)
+- Shanya        - Frontend simulation                            - [YourGitHub](https://github.com/SHANYA77)
+- Shiwani       - Visualization and Scheduling(Partial)          - [YourGitHub](https://github.com/yourusername)
+- Tanisha Rawat - Data Storage and Reporting Documentation       - [YourGitHub](https://github.com/yourusername)
 
 ##  Acknowledgments
 
