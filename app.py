@@ -1,277 +1,587 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-import time
-from datetime import datetime
-import threading
-import json
+/* script.js - full JS for CloudVista frontend */
 
-app = Flask(__name__)
-CORS(app)
+/* Global state */
+var vms = [];
+var tasks = [];
+var completedTasks = [];
+var currentTime = 0;
+var isSimulating = false;
+var simulationInterval = null;
+var utilizationChart = null;
+var timelineChart = null;
+var costChart = null;
+var taskQueue = [];
+var timeQuantum = 2;
 
+/* UI helpers */
+function toggleQuantum() {
+    var scheduler = document.getElementById('scheduler').value;
+    var quantumGroup = document.getElementById('quantumGroup');
+    quantumGroup.style.display = scheduler === 'roundrobin' ? 'block' : 'none';
+}
 
-vms = []
-tasks = []
-completed_tasks = []
-current_time = 0
-is_simulating = False
-simulation_thread = None
-utilization_history = []
+/* Charts initialization */
+function initCharts() {
+    var ctxUtil = document.getElementById('utilizationChart').getContext('2d');
+    utilizationChart = new Chart(ctxUtil, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'CPU Utilization (%)',
+                data: [],
+                borderColor: '#5a9fd4',
+                backgroundColor: 'rgba(90, 159, 212, 0.1)',
+                tension: 0.4,
+                borderWidth: 2,
+                fill: true
+            }, {
+                label: 'RAM Utilization (%)',
+                data: [],
+                borderColor: '#7db9e8',
+                backgroundColor: 'rgba(125, 185, 232, 0.1)',
+                tension: 0.4,
+                borderWidth: 2,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#b8d8ff' } } },
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } },
+                x: { ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } }
+            }
+        }
+    });
 
-class VirtualMachine:
-    def _init_(self, vm_id, cores, ram, storage):
-        self.id = vm_id
-        self.total_cores = cores
-        self.available_cores = cores
-        self.total_ram = ram
-        self.available_ram = ram
-        self.storage = storage
-        self.current_task = None
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'total_cores': self.total_cores,
-            'available_cores': self.available_cores,
-            'total_ram': self.total_ram,
-            'available_ram': self.available_ram,
-            'storage': self.storage,
-            'current_task': self.current_task.to_dict() if self.current_task else None
+    var ctxTimeline = document.getElementById('timelineChart').getContext('2d');
+    timelineChart = new Chart(ctxTimeline, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Wait Time',
+                data: [],
+                backgroundColor: '#4a8fc7'
+            }, {
+                label: 'Execution Time',
+                data: [],
+                backgroundColor: '#5a9fd4'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#b8d8ff' } } },
+            scales: {
+                x: { stacked: true, ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } },
+                y: { stacked: true, beginAtZero: true, ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } }
+            }
+        }
+    });
+
+    var ctxCost = document.getElementById('costChart').getContext('2d');
+    costChart = new Chart(ctxCost, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Task Cost (₹)',
+                data: [],
+                backgroundColor: '#5a9fd4'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#b8d8ff' } } },
+            scales: {
+                x: { ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } },
+                y: { beginAtZero: true, ticks: { color: '#7db9e8' }, grid: { color: 'rgba(90, 159, 212, 0.1)' } }
+            }
+        }
+    });
+}
+
+/* VM initialization */
+function initializeVMs() {
+    var count = parseInt(document.getElementById('vmCount').value);
+    var cores = parseInt(document.getElementById('vmCores').value);
+    var ram = parseInt(document.getElementById('vmRam').value);
+    var storage = parseInt(document.getElementById('vmStorage').value);
+
+    vms = [];
+    for (var i = 0; i < count; i++) {
+        vms.push({
+            id: i + 1,
+            totalCores: cores,
+            availableCores: cores,
+            totalRam: ram,
+            availableRam: ram,
+            storage: storage,
+            currentTask: null
+        });
+    }
+    alert('Initialized ' + count + ' VMs with ' + cores + ' cores and ' + ram + 'GB RAM each');
+    updateStats();
+}
+
+/* cost calculation (based on CPU & RAM hourly rates) */
+function calculateTaskCost(task) {
+    var cpuCost = parseFloat(document.getElementById('cpuCost').value) || 0;
+    var ramCost = parseFloat(document.getElementById('ramCost').value) || 0;
+    var hours = (task.executionTime || 0) / 3600.0;
+    var cost = (task.cpuRequired * cpuCost * hours) + (task.ramRequired * ramCost * hours);
+    return cost;
+}
+
+/* submit a task from UI */
+function submitTask() {
+    var name = document.getElementById('taskName').value || 'Task-' + (tasks.length + completedTasks.length + 1);
+    var cpu = parseInt(document.getElementById('taskCpu').value) || 1;
+    var ram = parseInt(document.getElementById('taskRam').value) || 1;
+    var time = parseInt(document.getElementById('taskTime').value) || 1;
+    var priority = parseInt(document.getElementById('taskPriority').value) || 5;
+
+    var task = {
+        id: tasks.length + completedTasks.length + 1,
+        name: name,
+        cpuRequired: cpu,
+        ramRequired: ram,
+        executionTime: time,
+        remainingTime: time,
+        priority: priority,
+        arrivalTime: currentTime,
+        startTime: null,
+        endTime: null,
+        status: 'pending',
+        quantumUsed: 0,
+        cost: 0
+    };
+
+    tasks.push(task);
+    updateTaskList();
+    updateStats();
+    document.getElementById('taskName').value = '';
+}
+
+/* render task list */
+function updateTaskList() {
+    var listDiv = document.getElementById('taskList');
+    if ((tasks.length === 0) && (completedTasks.length === 0)) {
+        listDiv.innerHTML = '<p style="color: #7db9e8;">No tasks submitted yet</p>';
+        return;
+    }
+
+    var html = '';
+    for (var i = 0; i < tasks.length; i++) {
+        var task = tasks[i];
+        var statusClass = task.status === 'completed' ? 'status-completed' :
+                          task.status === 'running' ? 'status-running' : 'status-pending';
+        html += '<div class="task-item">' +
+            '<div class="task-info">' +
+            '<strong>' + task.name + '</strong> - CPU: ' + task.cpuRequired + ' cores, RAM: ' + task.ramRequired + 'GB, Time: ' + task.executionTime + 's, Priority: ' + task.priority +
+            '</div>' +
+            '<span class="task-status ' + statusClass + '">' + task.status + '</span>' +
+            '</div>';
+    }
+    listDiv.innerHTML = html;
+}
+
+/* simulation control */
+function startSimulation() {
+    if (vms.length === 0) {
+        alert('Please initialize VMs first!');
+        return;
+    }
+    var pendingCount = tasks.filter(function(t) { return t.status === 'pending'; }).length;
+    if (pendingCount === 0) {
+        alert('No pending tasks to simulate!');
+        return;
+    }
+
+    isSimulating = true;
+    document.getElementById('simStatus').textContent = 'Running';
+
+    var scheduler = document.getElementById('scheduler').value;
+    timeQuantum = scheduler === 'roundrobin' ? parseFloat(document.getElementById('timeQuantum').value) || 2 : 0;
+
+    var pendingTasks = tasks.filter(function(t) { return t.status === 'pending'; });
+
+    if (scheduler === 'fcfs') {
+        pendingTasks.sort(function(a, b) { return a.arrivalTime - b.arrivalTime; });
+    } else if (scheduler === 'priority') {
+        pendingTasks.sort(function(a, b) { return b.priority - a.priority; });
+    } else if (scheduler === 'roundrobin') {
+        taskQueue = pendingTasks.slice();
+    }
+
+    simulationInterval = setInterval(function() {
+        if (scheduler === 'roundrobin') {
+            simulateRoundRobin();
+        } else {
+            simulateStep(pendingTasks);
+        }
+    }, 100);
+}
+
+/* FCFS & Priority step simulation */
+function simulateStep(pendingTasks) {
+    currentTime += 0.1;
+
+    // finish tasks
+    for (var i = 0; i < vms.length; i++) {
+        var vm = vms[i];
+        if (vm.currentTask) {
+            var t = vm.currentTask;
+            if (currentTime >= t.endTime) {
+                t.status = 'completed';
+                t.cost = calculateTaskCost(t);
+                completedTasks.push(t);
+                vm.availableCores += t.cpuRequired;
+                vm.availableRam += t.ramRequired;
+                vm.currentTask = null;
+            }
+        }
+    }
+
+    // schedule pending tasks onto available VMs
+    for (var j = 0; j < pendingTasks.length; j++) {
+        var task = pendingTasks[j];
+        if (task.status === 'pending') {
+            var availableVM = null;
+            for (var k = 0; k < vms.length; k++) {
+                var vm2 = vms[k];
+                if (vm2.currentTask === null &&
+                    vm2.availableCores >= task.cpuRequired &&
+                    vm2.availableRam >= task.ramRequired) {
+                    availableVM = vm2;
+                    break;
+                }
+            }
+
+            if (availableVM) {
+                task.status = 'running';
+                task.startTime = task.startTime || currentTime;
+                task.endTime = currentTime + task.executionTime;
+                availableVM.currentTask = task;
+                availableVM.availableCores -= task.cpuRequired;
+                availableVM.availableRam -= task.ramRequired;
+            }
+        }
+    }
+
+    updateTaskList();
+    updateStats();
+    updateCharts();
+
+    var allCompleted = tasks.every(function(x) { return x.status === 'completed'; });
+    if (allCompleted) {
+        stopSimulation();
+    }
+}
+
+/* Round robin simulation */
+function simulateRoundRobin() {
+    currentTime += 0.1;
+
+    for (var i = 0; i < vms.length; i++) {
+        var vm = vms[i];
+        if (vm.currentTask) {
+            var t = vm.currentTask;
+            t.quantumUsed += 0.1;
+            t.remainingTime -= 0.1;
+
+            if (t.remainingTime <= 0.01) {
+                t.status = 'completed';
+                t.endTime = currentTime;
+                t.remainingTime = 0;
+                t.cost = calculateTaskCost(t);
+                completedTasks.push(t);
+                vm.availableCores += t.cpuRequired;
+                vm.availableRam += t.ramRequired;
+                vm.currentTask = null;
+            } else if (t.quantumUsed >= timeQuantum) {
+                t.status = 'pending';
+                t.quantumUsed = 0;
+                vm.availableCores += t.cpuRequired;
+                vm.availableRam += t.ramRequired;
+                vm.currentTask = null;
+                taskQueue.push(t);
+            }
+        }
+    }
+
+    while (taskQueue.length > 0) {
+        var qtask = taskQueue[0];
+        if (qtask.status === 'completed') {
+            taskQueue.shift();
+            continue;
         }
 
-class Task:
-    def _init_(self, task_id, name, cpu, ram, exec_time, priority, arrival_time):
-        self.id = task_id
-        self.name = name
-        self.cpu_required = cpu
-        self.ram_required = ram
-        self.execution_time = exec_time
-        self.priority = priority
-        self.arrival_time = arrival_time
-        self.start_time = None
-        self.end_time = None
-        self.status = 'pending'
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'cpu_required': self.cpu_required,
-            'ram_required': self.ram_required,
-            'execution_time': self.execution_time,
-            'priority': self.priority,
-            'arrival_time': self.arrival_time,
-            'start_time': self.start_time,
-            'end_time': self.end_time,
-            'status': self.status
+        var avail = null;
+        for (var j = 0; j < vms.length; j++) {
+            var v = vms[j];
+            if (v.currentTask === null &&
+                v.availableCores >= qtask.cpuRequired &&
+                v.availableRam >= qtask.ramRequired) {
+                avail = v;
+                break;
+            }
         }
 
+        if (avail) {
+            taskQueue.shift();
+            qtask.status = 'running';
+            qtask.startTime = qtask.startTime || currentTime;
+            qtask.quantumUsed = 0;
+            avail.currentTask = qtask;
+            avail.availableCores -= qtask.cpuRequired;
+            avail.availableRam -= qtask.ramRequired;
+        } else {
+            break;
+        }
+    }
 
+    updateTaskList();
+    updateStats();
+    updateCharts();
 
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
+    var allCompleted = tasks.every(function(x) { return x.status === 'completed'; });
+    if (allCompleted && taskQueue.length === 0) {
+        stopSimulation();
+    }
+}
 
-@app.route('/api/vms/initialize', methods=['POST'])
-def initialize_vms():
-    global vms
-    data = request.json
-    count = data.get('count', 3)
-    cores = data.get('cores', 4)
-    ram = data.get('ram', 8)
-    storage = data.get('storage', 100)
-    
-    vms = []
-    for i in range(count):
-        vms.append(VirtualMachine(i + 1, cores, ram, storage))
-    
-    return jsonify({
-        'success': True,
-        'message': f'Initialized {count} VMs',
-        'vms': [vm.to_dict() for vm in vms]
-    })
+/* stop simulation */
+function stopSimulation() {
+    isSimulating = false;
+    clearInterval(simulationInterval);
+    document.getElementById('simStatus').textContent = 'Completed';
+    // ensure final stats & charts updated
+    updateStats();
+    updateCharts();
+}
 
-@app.route('/api/vms', methods=['GET'])
-def get_vms():
-    return jsonify([vm.to_dict() for vm in vms])
+/* reset everything */
+function resetSimulation() {
+    stopSimulation();
+    tasks = [];
+    completedTasks = [];
+    currentTime = 0;
+    taskQueue = [];
+    for (var i = 0; i < vms.length; i++) {
+        vms[i].availableCores = vms[i].totalCores;
+        vms[i].availableRam = vms[i].totalRam;
+        vms[i].currentTask = null;
+    }
+    document.getElementById('simStatus').textContent = 'Idle';
+    updateTaskList();
+    updateStats();
 
-@app.route('/api/tasks/submit', methods=['POST'])
-def submit_task():
-    global tasks, current_time
-    data = request.json
-    
-    task_id = len(tasks) + 1
-    task = Task(
-        task_id,
-        data.get('name', f'Task-{task_id}'),
-        data.get('cpu', 2),
-        data.get('ram', 4),
-        data.get('execution_time', 10),
-        data.get('priority', 5),
-        current_time
-    )
-    
-    tasks.append(task)
-    
-    return jsonify({
-        'success': True,
-        'task': task.to_dict()
-    })
+    if (utilizationChart) {
+        utilizationChart.data.labels = [];
+        utilizationChart.data.datasets[0].data = [];
+        utilizationChart.data.datasets[1].data = [];
+        utilizationChart.update();
+    }
+    if (timelineChart) {
+        timelineChart.data.labels = [];
+        timelineChart.data.datasets[0].data = [];
+        timelineChart.data.datasets[1].data = [];
+        timelineChart.update();
+    }
+    if (costChart) {
+        costChart.data.labels = [];
+        costChart.data.datasets[0].data = [];
+        costChart.update();
+    }
+}
 
-@app.route('/api/tasks', methods=['GET'])
-def get_tasks():
-    all_tasks = tasks + completed_tasks
-    return jsonify([task.to_dict() for task in all_tasks])
+/* update stats shown in UI */
+function updateStats() {
+    // total tasks includes pending + completed
+    var totalTasks = tasks.length;
+    var completed = completedTasks.length;
 
-@app.route('/api/simulation/start', methods=['POST'])
-def start_simulation():
-    global is_simulating, simulation_thread
-    
-    if not vms:
-        return jsonify({'success': False, 'message': 'No VMs initialized'}), 400
-    
-    if not tasks:
-        return jsonify({'success': False, 'message': 'No tasks to simulate'}), 400
-    
-    data = request.json
-    scheduler = data.get('scheduler', 'fcfs')
-    
-    is_simulating = True
-    simulation_thread = threading.Thread(target=run_simulation, args=(scheduler,))
-    simulation_thread.start()
-    
-    return jsonify({'success': True, 'message': 'Simulation started'})
+    var avgWait = 0;
+    var avgTurnaround = 0;
+    var totalCost = 0;
 
-@app.route('/api/simulation/stop', methods=['POST'])
-def stop_simulation():
-    global is_simulating
-    is_simulating = False
-    return jsonify({'success': True, 'message': 'Simulation stopped'})
+    if (completedTasks.length > 0) {
+        avgWait = completedTasks.reduce(function(acc, t) {
+            return acc + ((t.startTime || 0) - (t.arrivalTime || 0));
+        }, 0) / completedTasks.length;
 
-@app.route('/api/simulation/reset', methods=['POST'])
-def reset_simulation():
-    global tasks, completed_tasks, current_time, is_simulating, utilization_history
-    
-    is_simulating = False
-    tasks = []
-    completed_tasks = []
-    current_time = 0
-    utilization_history = []
-    
-    for vm in vms:
-        vm.available_cores = vm.total_cores
-        vm.available_ram = vm.total_ram
-        vm.current_task = None
-    
-    return jsonify({'success': True, 'message': 'Simulation reset'})
+        avgTurnaround = completedTasks.reduce(function(acc, t) {
+            return acc + ((t.endTime || t.startTime || 0) - (t.arrivalTime || 0));
+        }, 0) / completedTasks.length;
 
-@app.route('/api/simulation/status', methods=['GET'])
-def get_simulation_status():
-    return jsonify({
-        'is_simulating': is_simulating,
-        'current_time': current_time,
-        'tasks': [task.to_dict() for task in tasks],
-        'completed_tasks': [task.to_dict() for task in completed_tasks],
-        'vms': [vm.to_dict() for vm in vms]
-    })
+        totalCost = completedTasks.reduce(function(acc, t) {
+            return acc + (t.cost || 0);
+        }, 0);
+    }
 
-@app.route('/api/statistics', methods=['GET'])
-def get_statistics():
-    total_tasks = len(tasks) + len(completed_tasks)
-    completed = len(completed_tasks)
-    
-    avg_wait = 0
-    avg_turnaround = 0
-    
-    if completed_tasks:
-        avg_wait = sum((t.start_time - t.arrival_time) for t in completed_tasks) / len(completed_tasks)
-        avg_turnaround = sum((t.end_time - t.arrival_time) for t in completed_tasks) / len(completed_tasks)
-    
-    cpu_util = 0
-    ram_util = 0
-    
-    if vms:
-        total_cpu = sum(vm.total_cores for vm in vms)
-        used_cpu = sum((vm.total_cores - vm.available_cores) for vm in vms)
-        total_ram = sum(vm.total_ram for vm in vms)
-        used_ram = sum((vm.total_ram - vm.available_ram) for vm in vms)
-        
-        cpu_util = (used_cpu / total_cpu) * 100 if total_cpu > 0 else 0
-        ram_util = (used_ram / total_ram) * 100 if total_ram > 0 else 0
-    
-    return jsonify({
-        'total_tasks': total_tasks,
-        'completed_tasks': completed,
-        'avg_wait_time': round(avg_wait, 2),
-        'avg_turnaround_time': round(avg_turnaround, 2),
-        'cpu_utilization': round(cpu_util, 2),
-        'ram_utilization': round(ram_util, 2),
-        'utilization_history': utilization_history[-50:]  
-    })
+    // CPU & RAM utilization
+    var cpuUtil = 0;
+    var ramUtil = 0;
+    if (vms.length > 0) {
+        var totalCpu = vms.reduce(function(acc, vm) { return acc + vm.totalCores; }, 0);
+        var usedCpu = vms.reduce(function(acc, vm) { return acc + (vm.totalCores - vm.availableCores); }, 0);
+        var totalRam = vms.reduce(function(acc, vm) { return acc + vm.totalRam; }, 0);
+        var usedRam = vms.reduce(function(acc, vm) { return acc + (vm.totalRam - vm.availableRam); }, 0);
 
+        cpuUtil = totalCpu > 0 ? (usedCpu / totalCpu) * 100 : 0;
+        ramUtil = totalRam > 0 ? (usedRam / totalRam) * 100 : 0;
+    }
 
+    document.getElementById('totalTasks').textContent = totalTasks;
+    document.getElementById('completedTasks').textContent = completed;
+    document.getElementById('avgWaitTime').textContent = (avgWait).toFixed(1) + 's';
+    document.getElementById('avgTurnaround').textContent = (avgTurnaround).toFixed(1) + 's';
+    document.getElementById('cpuUtilization').textContent = cpuUtil.toFixed(1) + '%';
+    document.getElementById('ramUtilization').textContent = ramUtil.toFixed(1) + '%';
+    document.getElementById('totalCost').textContent = '₹' + totalCost.toFixed(2);
+    document.getElementById('avgCostPerTask').textContent = completed > 0 ? '₹' + (totalCost / completed).toFixed(2) : '₹0.00';
+}
 
-def run_simulation(scheduler):
-    global current_time, is_simulating, tasks, completed_tasks, utilization_history
+/* update charts (utilization, timeline, cost) */
+function updateCharts() {
+    // add a utilization sample
+    if (utilizationChart) {
+        var label = (currentTime).toFixed(1) + 's';
+        var totalCpu = vms.reduce(function(acc, vm) { return acc + vm.totalCores; }, 0);
+        var usedCpu = vms.reduce(function(acc, vm) { return acc + (vm.totalCores - vm.availableCores); }, 0);
+        var totalRam = vms.reduce(function(acc, vm) { return acc + vm.totalRam; }, 0);
+        var usedRam = vms.reduce(function(acc, vm) { return acc + (vm.totalRam - vm.availableRam); }, 0);
 
-    pending_tasks = [t for t in tasks if t.status == 'pending']
-    
-    if scheduler == 'fcfs':
-        pending_tasks.sort(key=lambda t: t.arrival_time)
-    elif scheduler == 'priority':
-        pending_tasks.sort(key=lambda t: -t.priority)
-    
-    while is_simulating:
-        current_time += 0.1
-        time.sleep(0.1)  
-        for vm in vms:
-            if vm.current_task and current_time >= vm.current_task.end_time:
-                task = vm.current_task
-                task.status = 'completed'
-                completed_tasks.append(task)
-                tasks.remove(task)
-                
-                vm.available_cores += task.cpu_required
-                vm.available_ram += task.ram_required
-                vm.current_task = None
-        
-     
-        for task in pending_tasks[:]:
-            if task.status == 'pending':
-                available_vm = next(
-                    (vm for vm in vms 
-                     if vm.current_task is None 
-                     and vm.available_cores >= task.cpu_required 
-                     and vm.available_ram >= task.ram_required),
-                    None
-                )
-                
-                if available_vm:
-                    task.status = 'running'
-                    task.start_time = current_time
-                    task.end_time = current_time + task.execution_time
-                    
-                    available_vm.current_task = task
-                    available_vm.available_cores -= task.cpu_required
-                    available_vm.available_ram -= task.ram_required
-        
- 
-        if vms:
-            total_cpu = sum(vm.total_cores for vm in vms)
-            used_cpu = sum((vm.total_cores - vm.available_cores) for vm in vms)
-            total_ram = sum(vm.total_ram for vm in vms)
-            used_ram = sum((vm.total_ram - vm.available_ram) for vm in vms)
-            
-            utilization_history.append({
-                'time': round(current_time, 1),
-                'cpu': round((used_cpu / total_cpu) * 100, 2) if total_cpu > 0 else 0,
-                'ram': round((used_ram / total_ram) * 100, 2) if total_ram > 0 else 0
-            })
-        
-  
-        if all(t.status == 'completed' for t in tasks) and not pending_tasks:
-            is_simulating = False
-            break
+        var cpuPct = totalCpu > 0 ? (usedCpu / totalCpu) * 100 : 0;
+        var ramPct = totalRam > 0 ? (usedRam / totalRam) * 100 : 0;
 
-if __name__ == '_main_':
+        // push samples (keep last 60)
+        utilizationChart.data.labels.push(label);
+        utilizationChart.data.datasets[0].data.push(cpuPct.toFixed(2));
+        utilizationChart.data.datasets[1].data.push(ramPct.toFixed(2));
+        if (utilizationChart.data.labels.length > 60) {
+            utilizationChart.data.labels.shift();
+            utilizationChart.data.datasets[0].data.shift();
+            utilizationChart.data.datasets[1].data.shift();
+        }
+        utilizationChart.update();
+    }
 
-    app.run(debug=True, port=5000, threaded=True)
+    // timeline: for completed tasks, show wait vs exec
+    if (timelineChart) {
+        var names = completedTasks.map(function(t) { return t.name; });
+        var waits = completedTasks.map(function(t) { return ((t.startTime || 0) - (t.arrivalTime || 0)).toFixed(2); });
+        var execs = completedTasks.map(function(t) { return (t.executionTime || 0).toFixed(2); });
+
+        timelineChart.data.labels = names;
+        timelineChart.data.datasets[0].data = waits;
+        timelineChart.data.datasets[1].data = execs;
+        timelineChart.update();
+    }
+
+    // cost chart
+    if (costChart) {
+        var labels = completedTasks.map(function(t) { return t.name; });
+        var costs = completedTasks.map(function(t) { return (t.cost || 0).toFixed(2); });
+
+        costChart.data.labels = labels;
+        costChart.data.datasets[0].data = costs;
+        costChart.update();
+    }
+}
+
+/* client-side PDF generation using html2canvas + jsPDF
+   NOTE: index.html must include:
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+*/
+function generatePDF() {
+    if (completedTasks.length === 0) {
+        alert('No completed tasks to report.');
+        return;
+    }
+
+    var reportArea = document.querySelector('.container');
+    if (!reportArea) {
+        alert('Report area not found.');
+        return;
+    }
+
+    // show a quick status
+    document.getElementById('simStatus').textContent = 'Generating PDF...';
+
+    html2canvas(reportArea, { scale: 2 }).then(function(canvas) {
+        var imgData = canvas.toDataURL('image/png');
+        var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+        var imgProps = pdf.getImageProperties(imgData);
+        var pdfWidth = pdf.internal.pageSize.getWidth();
+        var pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        var filename = 'cloudvista_report_' + (new Date()).toISOString().replace(/[:.]/g, '-') + '.pdf';
+        pdf.save(filename);
+        document.getElementById('simStatus').textContent = 'Completed';
+    }).catch(function(err) {
+        console.error(err);
+        alert('Failed to generate PDF: ' + err);
+        document.getElementById('simStatus').textContent = 'Completed';
+    });
+}
+
+/* save simulation to backend (POST to /api/simulation/save)
+   Backend expects completed tasks & scheduler info; minimal payload below.
+*/
+function saveSimulation() {
+    if (completedTasks.length === 0) {
+        alert('No completed tasks to save.');
+        return;
+    }
+
+    var scheduler = document.getElementById('scheduler').value || 'unknown';
+
+    // build payload
+    var payload = {
+        scheduler: scheduler,
+        completedTasks: completedTasks.map(function(t) {
+            return {
+                id: t.id,
+                name: t.name,
+                cpu_required: t.cpuRequired,
+                ram_required: t.ramRequired,
+                execution_time: t.executionTime,
+                priority: t.priority,
+                start_time: t.startTime,
+                end_time: t.endTime,
+                cost: t.cost
+            };
+        })
+    };
+
+    fetch('/api/simulation/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(function(res) {
+        return res.json();
+    }).then(function(js) {
+        if (js.success) {
+            alert('Simulation saved, id: ' + (js.simulation_id || 'unknown'));
+        } else {
+            alert('Save failed: ' + (js.message || JSON.stringify(js)));
+        }
+    }).catch(function(err) {
+        console.error('Save error:', err);
+        alert('Failed to save simulation. Is backend running?');
+    });
+}
+
+/* initialize charts & basic UI on load */
+window.addEventListener('load', function() {
+    initCharts();
+    updateTaskList();
+    updateStats();
+});
