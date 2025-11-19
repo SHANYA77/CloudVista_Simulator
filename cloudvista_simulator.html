@@ -1,660 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudVista - Cloud Resource Simulator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2d5016 0%, #1a3d0a 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #4a7c2c 0%, #2d5016 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 30px;
-        }
-
-        .section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .section h2 {
-            color: #4a7c2c;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border 0.3s;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #4a7c2c;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #4a7c2c 0%, #2d5016 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-right: 10px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(74, 124, 44, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .task-list {
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .task-item {
-            background: white;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            border-left: 4px solid #4a7c2c;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .task-info {
-            flex: 1;
-        }
-
-        .task-info strong {
-            color: #4a7c2c;
-        }
-
-        .task-status {
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 600;
-        }
-
-        .status-pending {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .status-running {
-            background: #c8e6c9;
-            color: #1b5e20;
-        }
-
-        .status-completed {
-            background: #a5d6a7;
-            color: #1b5e20;
-        }
-
-        .full-width {
-            grid-column: 1 / -1;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-top: 20px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .stat-card h3 {
-            color: #4a7c2c;
-            font-size: 2em;
-            margin-bottom: 5px;
-        }
-
-        .stat-card p {
-            color: #666;
-            font-size: 0.9em;
-        }
-
-        .vm-config {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudVista - Cloud Resource Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>☁️ CloudVista</h1>
-            <p>Advanced Cloud Resource Simulation Platform</p>
-        </div>
-
-        <div class="main-content">
-            <!-- VM Configuration -->
-            <div class="section">
-                <h2>Virtual Machine Configuration</h2>
-                <div class="vm-config">
-                    <div class="form-group">
-                        <label>Number of VMs</label>
-                        <input type="number" id="vmCount" value="3" min="1" max="10">
-                    </div>
-                    <div class="form-group">
-                        <label>CPU Cores per VM</label>
-                        <input type="number" id="vmCores" value="4" min="1" max="16">
-                    </div>
-                    <div class="form-group">
-                        <label>RAM per VM (GB)</label>
-                        <input type="number" id="vmRam" value="8" min="1" max="64">
-                    </div>
-                    <div class="form-group">
-                        <label>Storage per VM (GB)</label>
-                        <input type="number" id="vmStorage" value="100" min="10" max="1000">
-                    </div>
-                </div>
-                <button class="btn" onclick="initializeVMs()" style="margin-top: 15px;">Initialize VMs</button>
-            </div>
-
-            <!-- Task Submission -->
-            <div class="section">
-                <h2>Task Submission</h2>
-                <div class="form-group">
-                    <label>Task Name</label>
-                    <input type="text" id="taskName" placeholder="e.g., DataProcessing-1">
-                </div>
-                <div class="form-group">
-                    <label>CPU Required (cores)</label>
-                    <input type="number" id="taskCpu" value="2" min="1">
-                </div>
-                <div class="form-group">
-                    <label>RAM Required (GB)</label>
-                    <input type="number" id="taskRam" value="4" min="1">
-                </div>
-                <div class="form-group">
-                    <label>Execution Time (seconds)</label>
-                    <input type="number" id="taskTime" value="10" min="1">
-                </div>
-                <div class="form-group">
-                    <label>Priority (1-10)</label>
-                    <input type="number" id="taskPriority" value="5" min="1" max="10">
-                </div>
-                <button class="btn" onclick="submitTask()">Submit Task</button>
-            </div>
-
-            <!-- Scheduler Selection -->
-            <div class="section">
-                <h2>Scheduler Configuration</h2>
-                <div class="form-group">
-                    <label>Select Scheduling Algorithm</label>
-                    <select id="scheduler">
-                        <option value="fcfs">First Come First Serve (FCFS)</option>
-                        <option value="priority">Priority Scheduling</option>
-                    </select>
-                </div>
-                <button class="btn" onclick="startSimulation()">Start Simulation</button>
-                <button class="btn" onclick="resetSimulation()">Reset</button>
-                <div style="margin-top: 20px;">
-                    <strong>Status:</strong> <span id="simStatus">Idle</span>
-                </div>
-            </div>
-
-            <!-- Task Queue -->
-            <div class="section">
-                <h2>Task Queue</h2>
-                <div id="taskList" class="task-list">
-                    <p style="color: #999;">No tasks submitted yet</p>
-                </div>
-            </div>
-
-            <!-- Statistics -->
-            <div class="section full-width">
-                <h2>System Statistics</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3 id="totalTasks">0</h3>
-                        <p>Total Tasks</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="completedTasks">0</h3>
-                        <p>Completed</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="avgWaitTime">0s</h3>
-                        <p>Avg Wait Time</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="avgTurnaround">0s</h3>
-                        <p>Avg Turnaround</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="cpuUtilization">0%</h3>
-                        <p>CPU Utilization</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="ramUtilization">0%</h3>
-                        <p>RAM Utilization</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resource Utilization Chart -->
-            <div class="section full-width">
-                <h2>Resource Utilization Over Time</h2>
-                <div class="chart-container">
-                    <canvas id="utilizationChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Task Execution Timeline -->
-            <div class="section full-width">
-                <h2>Task Execution Timeline</h2>
-                <div class="chart-container">
-                    <canvas id="timelineChart"></canvas>
-                </div>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>CloudVista</h1>
+      <p>Cloud Resource Simulation & Cost Analysis Platform</p>
     </div>
 
-    <script>
-        // Simulation State
-        let vms = [];
-        let tasks = [];
-        let completedTasks = [];
-        let currentTime = 0;
-        let isSimulating = false;
-        let simulationInterval = null;
+    <div class="main-content">
+      <!-- VM Configuration -->
+      <div class="section">
+        <h2>Virtual Machine Configuration</h2>
+        <div class="vm-config">
+          <div class="form-group">
+            <label>Number of VMs</label>
+            <input type="number" id="vmCount" value="3" min="1" max="10">
+          </div>
+          <div class="form-group">
+            <label>CPU Cores per VM</label>
+            <input type="number" id="vmCores" value="4" min="1" max="16">
+          </div>
+          <div class="form-group">
+            <label>RAM per VM (GB)</label>
+            <input type="number" id="vmRam" value="8" min="1" max="64">
+          </div>
+          <div class="form-group">
+            <label>Storage per VM (GB)</label>
+            <input type="number" id="vmStorage" value="100" min="10" max="1000">
+          </div>
+        </div>
+        <button class="btn" onclick="initializeVMs()">Initialize VMs</button>
+      </div>
 
-        // Charts
-        let utilizationChart = null;
-        let timelineChart = null;
+      <!-- Cost Configuration -->
+      <div class="section">
+        <h2>Cost Configuration (INR)</h2>
+        <div class="cost-config">
+          <div class="form-group">
+            <label>CPU Cost (₹/core-hour)</label>
+            <input type="number" id="cpuCost" value="4" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label>RAM Cost (₹/GB-hour)</label>
+            <input type="number" id="ramCost" value="0.8" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label>Storage Cost (₹/GB-month)</label>
+            <input type="number" id="storageCost" value="8" step="0.1" min="0">
+          </div>
+        </div>
+      </div>
 
-        // Initialize Charts
-        function initCharts() {
-            const ctxUtil = document.getElementById('utilizationChart').getContext('2d');
-            utilizationChart = new Chart(ctxUtil, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'CPU Utilization (%)',
-                        data: [],
-                        borderColor: '#4a7c2c',
-                        backgroundColor: 'rgba(74, 124, 44, 0.1)',
-                        tension: 0.4
-                    }, {
-                        label: 'RAM Utilization (%)',
-                        data: [],
-                        borderColor: '#2d5016',
-                        backgroundColor: 'rgba(45, 80, 22, 0.1)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, max: 100 }
-                    }
-                }
-            });
+      <!-- Task Submission -->
+      <div class="section">
+        <h2>Task Submission</h2>
+        <div class="form-group"><label>Task Name</label><input type="text" id="taskName"></div>
+        <div class="form-group"><label>CPU Required (cores)</label><input type="number" id="taskCpu" value="2" min="1"></div>
+        <div class="form-group"><label>RAM Required (GB)</label><input type="number" id="taskRam" value="4" min="1"></div>
+        <div class="form-group"><label>Execution Time (seconds)</label><input type="number" id="taskTime" value="10" min="1"></div>
+        <div class="form-group"><label>Priority (1-10)</label><input type="number" id="taskPriority" value="5" min="1" max="10"></div>
+        <button class="btn" onclick="submitTask()">Submit Task</button>
+      </div>
 
-            const ctxTimeline = document.getElementById('timelineChart').getContext('2d');
-            timelineChart = new Chart(ctxTimeline, {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Wait Time',
-                        data: [],
-                        backgroundColor: '#a8d08d'
-                    }, {
-                        label: 'Execution Time',
-                        data: [],
-                        backgroundColor: '#4a7c2c'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, beginAtZero: true }
-                    }
-                }
-            });
-        }
+      <!-- Scheduler -->
+      <div class="section">
+        <h2>Scheduler Configuration</h2>
+        <div class="form-group">
+          <label>Select Scheduling Algorithm</label>
+          <select id="scheduler" onchange="toggleQuantum()">
+            <option value="fcfs">First Come First Serve (FCFS)</option>
+            <option value="priority">Priority Scheduling</option>
+            <option value="roundrobin">Round Robin</option>
+          </select>
+        </div>
+        <div class="form-group" id="quantumGroup" style="display:none;">
+          <label>Time Quantum (seconds)</label>
+          <input type="number" id="timeQuantum" value="2" min="1" max="10">
+        </div>
+        <button class="btn" onclick="startSimulation()">Start Simulation</button>
+        <button class="btn btn-secondary" onclick="resetSimulation()">Reset</button>
+        <div style="margin-top: 20px;"><span class="status-indicator" id="simStatus">Idle</span></div>
+      </div>
 
-        // Initialize VMs
-        function initializeVMs() {
-            const count = parseInt(document.getElementById('vmCount').value);
-            const cores = parseInt(document.getElementById('vmCores').value);
-            const ram = parseInt(document.getElementById('vmRam').value);
-            const storage = parseInt(document.getElementById('vmStorage').value);
+      <!-- Task Queue -->
+      <div class="section">
+        <h2>Task Queue</h2>
+        <div id="taskList" class="task-list"><p style="color: #7db9e8;">No tasks submitted yet</p></div>
+      </div>
 
-            vms = [];
-            for (let i = 0; i < count; i++) {
-                vms.push({
-                    id: i + 1,
-                    totalCores: cores,
-                    availableCores: cores,
-                    totalRam: ram,
-                    availableRam: ram,
-                    storage: storage,
-                    currentTask: null
-                });
-            }
-            alert(`Initialized ${count} VMs with ${cores} cores and ${ram}GB RAM each`);
-        }
+      <!-- Export & Analysis -->
+      <div class="section">
+        <h2>Export & Analysis</h2>
+        <button class="btn btn-success" onclick="generatePDF()">Generate PDF Report</button>
+        <button class="btn btn-secondary" onclick="saveSimulation()">Save Simulation</button>
+      </div>
 
-        // Submit Task
-        function submitTask() {
-            const name = document.getElementById('taskName').value || `Task-${tasks.length + 1}`;
-            const cpu = parseInt(document.getElementById('taskCpu').value);
-            const ram = parseInt(document.getElementById('taskRam').value);
-            const time = parseInt(document.getElementById('taskTime').value);
-            const priority = parseInt(document.getElementById('taskPriority').value);
+      <!-- System Statistics -->
+      <div class="section full-width">
+        <h2>System Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card"><h3 id="totalTasks">0</h3><p>Total Tasks</p></div>
+          <div class="stat-card"><h3 id="completedTasks">0</h3><p>Completed</p></div>
+          <div class="stat-card"><h3 id="avgWaitTime">0s</h3><p>Avg Wait Time</p></div>
+          <div class="stat-card"><h3 id="avgTurnaround">0s</h3><p>Avg Turnaround</p></div>
+          <div class="stat-card"><h3 id="cpuUtilization">0%</h3><p>CPU Utilization</p></div>
+          <div class="stat-card"><h3 id="ramUtilization">0%</h3><p>RAM Utilization</p></div>
+          <div class="stat-card"><h3 id="totalCost">₹0.00</h3><p>Total Cost</p></div>
+          <div class="stat-card"><h3 id="avgCostPerTask">₹0.00</h3><p>Avg Cost/Task</p></div>
+        </div>
+      </div>
 
-            const task = {
-                id: tasks.length + 1,
-                name: name,
-                cpuRequired: cpu,
-                ramRequired: ram,
-                executionTime: time,
-                priority: priority,
-                arrivalTime: currentTime,
-                startTime: null,
-                endTime: null,
-                status: 'pending'
-            };
+      <!-- Charts -->
+      <div class="section full-width"><h2>Resource Utilization Over Time</h2><div class="chart-container"><canvas id="utilizationChart"></canvas></div></div>
+      <div class="section full-width"><h2>Task Execution Timeline</h2><div class="chart-container"><canvas id="timelineChart"></canvas></div></div>
+      <div class="section full-width"><h2>Cost Analysis by Task (₹)</h2><div class="chart-container"><canvas id="costChart"></canvas></div></div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-            tasks.push(task);
-            updateTaskList();
-            updateStats();
-            document.getElementById('taskName').value = '';
-        }
-
-        // Update Task List Display
-        function updateTaskList() {
-            const listDiv = document.getElementById('taskList');
-            if (tasks.length === 0 && completedTasks.length === 0) {
-                listDiv.innerHTML = '<p style="color: #999;">No tasks submitted yet</p>';
-                return;
-            }
-
-            let html = '';
-            tasks.forEach(task => {
-                const statusClass = task.status === 'completed' ? 'status-completed' : 
-                                  task.status === 'running' ? 'status-running' : 'status-pending';
-                html += `
-                    <div class="task-item">
-                        <div class="task-info">
-                            <strong>${task.name}</strong> - 
-                            CPU: ${task.cpuRequired} cores, RAM: ${task.ramRequired}GB, 
-                            Time: ${task.executionTime}s, Priority: ${task.priority}
-                        </div>
-                        <span class="task-status ${statusClass}">${task.status}</span>
-                    </div>
-                `;
-            });
-            listDiv.innerHTML = html;
-        }
-
-        // Start Simulation
-        function startSimulation() {
-            if (vms.length === 0) {
-                alert('Please initialize VMs first!');
-                return;
-            }
-            if (tasks.filter(t => t.status === 'pending').length === 0) {
-                alert('No pending tasks to simulate!');
-                return;
-            }
-
-            isSimulating = true;
-            document.getElementById('simStatus').textContent = 'Running';
-            document.getElementById('simStatus').style.color = '#4a7c2c';
-
-            const scheduler = document.getElementById('scheduler').value;
-            
-            // Sort tasks based on scheduler
-            const pendingTasks = tasks.filter(t => t.status === 'pending');
-            if (scheduler === 'fcfs') {
-                pendingTasks.sort((a, b) => a.arrivalTime - b.arrivalTime);
-            } else if (scheduler === 'priority') {
-                pendingTasks.sort((a, b) => b.priority - a.priority);
-            }
-
-            simulationInterval = setInterval(() => {
-                simulateStep(pendingTasks);
-            }, 100);
-        }
-
-        // Simulate One Step
-        function simulateStep(pendingTasks) {
-            currentTime += 0.1;
-
-            // Check for completed tasks
-            vms.forEach(vm => {
-                if (vm.currentTask) {
-                    const task = vm.currentTask;
-                    if (currentTime >= task.endTime) {
-                        task.status = 'completed';
-                        completedTasks.push(task);
-                        vm.availableCores += task.cpuRequired;
-                        vm.availableRam += task.ramRequired;
-                        vm.currentTask = null;
-                    }
-                }
-            });
-
-            // Assign pending tasks to available VMs
-            pendingTasks.forEach(task => {
-                if (task.status === 'pending') {
-                    const availableVM = vms.find(vm => 
-                        vm.currentTask === null &&
-                        vm.availableCores >= task.cpuRequired &&
-                        vm.availableRam >= task.ramRequired
-                    );
-
-                    if (availableVM) {
-                        task.status = 'running';
-                        task.startTime = currentTime;
-                        task.endTime = currentTime + task.executionTime;
-                        availableVM.currentTask = task;
-                        availableVM.availableCores -= task.cpuRequired;
-                        availableVM.availableRam -= task.ramRequired;
-                    }
-                }
-            });
-
-            updateTaskList();
-            updateStats();
-            updateCharts();
-
-            // Stop if all tasks completed
-            if (tasks.every(t => t.status === 'completed')) {
-                stopSimulation();
-            }
-        }
-
-        // Stop Simulation
-        function stopSimulation() {
-            isSimulating = false;
-            clearInterval(simulationInterval);
-            document.getElementById('simStatus').textContent = 'Completed';
-            document.getElementById('simStatus').style.color = '#4a7c2c';
-        }
-
-        // Reset Simulation
-        function resetSimulation() {
-            stopSimulation();
-            tasks = [];
-            completedTasks = [];
-            currentTime = 0;
-            vms.forEach(vm => {
-                vm.availableCores = vm.totalCores;
-                vm.availableRam = vm.totalRam;
-                vm.currentTask = null;
-            });
-            document.getElementById('simStatus').textContent = 'Idle';
-            document.getElementById('simStatus').style.color = '#666';
-            updateTaskList();
-            updateStats();
-            if (utilizationChart) {
-                utilizationChart.data.labels = [];
-                utilizationChart.data.datasets[0].data = [];
-                utilizationChart.data.datasets[1].data = [];
-                utilizationChart.update();
-            }
-            if (timelineChart) {
-                timelineChart.data.labels = [];
-                timelineChart.data.datasets[0].data = [];
-                timelineChart.data.datasets[1].data = [];
-                timelineChart.update();
-            }
-        }
-
-        // Update Statistics
-        function updateStats() {
-            document.getElementById('totalTasks').textContent = tasks.length;
-            document.getElementById('completedTasks').textContent = completedTasks.length;
-
-            if (completedTasks.length > 0) {
-                const avgWait = completedTasks.reduce((sum, t) => 
-                    sum + (t.startTime - t.arrivalTime), 0) / completedTasks.length;
-                const avgTurnaround = completedTasks.reduce((sum, t) => 
-                    sum + (t.endTime - t.arrivalTime), 0) / completedTasks.length;
-                
-                document.getElementById('avgWaitTime').textContent = avgWait.toFixed(1) + 's';
-                document.getElementById('avgTurnaround').textContent = avgTurnaround.toFixed(1) + 's';
-            }
-
-            if (vms.length > 0) {
-                const totalCpu = vms.reduce((sum, vm) => sum + vm.totalCores, 0);
-                const usedCpu = vms.reduce((sum, vm) => sum + (vm.totalCores - vm.availableCores), 0);
-                const totalRam = vms.reduce((sum, vm) => sum + vm.totalRam, 0);
-                const usedRam = vms.reduce((sum, vm) => sum + (vm.totalRam - vm.availableRam), 0);
-
-                document.getElementById('cpuUtilization').textContent = 
-                    ((usedCpu / totalCpu) * 100).toFixed(1) + '%';
-                document.getElementById('ramUtilization').textContent = 
-                    ((usedRam / totalRam) * 100).toFixed(1) + '%';
-            }
-        }
-
-        // Update Charts
-        function updateCharts() {
-            if (!utilizationChart) return;
-
-            const totalCpu = vms.reduce((sum, vm) => sum + vm.totalCores, 0);
-            const usedCpu = vms.reduce((sum, vm) => sum + (vm.totalCores - vm.availableCores), 0);
-            const totalRam = vms.reduce((sum, vm) => sum + vm.totalRam, 0);
-            const usedRam = vms.reduce((sum, vm) => sum + (vm.totalRam - vm.availableRam), 0);
-
-            utilizationChart.data.labels.push(currentTime.toFixed(1));
-            utilizationChart.data.datasets[0].data.push((usedCpu / totalCpu) * 100);
-            utilizationChart.data.datasets[1].data.push((usedRam / totalRam) * 100);
-
-            if (utilizationChart.data.labels.length > 50) {
-                utilizationChart.data.labels.shift();
-                utilizationChart.data.datasets[0].data.shift();
-                utilizationChart.data.datasets[1].data.shift();
-            }
-
-            utilizationChart.update('none');
-
-            // Update timeline chart with completed tasks
-            if (completedTasks.length > 0 && completedTasks.length !== timelineChart.data.labels.length) {
-                timelineChart.data.labels = completedTasks.map(t => t.name);
-                timelineChart.data.datasets[0].data = completedTasks.map(t => t.startTime - t.arrivalTime);
-                timelineChart.data.datasets[1].data = completedTasks.map(t => t.executionTime);
-                timelineChart.update('none');
-            }
-        }
-
-        // Initialize on load
-        window.onload = function() {
-            initCharts();
-            initializeVMs();
-        };
-    </script>
+  <script src="script.js"></script>
 </body>
 </html>
