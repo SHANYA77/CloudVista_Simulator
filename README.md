@@ -67,7 +67,7 @@ cloudvista/
 └── README.md               # Project documentation
 ```
 
-## 🚀 Installation & Setup
+##  Installation & Setup
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -139,7 +139,7 @@ http://localhost:5000
 - Click "Save Simulation" to store data in database
 - Export JSON data for further analysis
 
-## 🎯 Scheduling Algorithms
+##  Scheduling Algorithms
 
 ### First Come First Serve (FCFS)
 - **Type**: Non-preemptive
@@ -183,42 +183,9 @@ http://localhost:5000
 - `POST /api/simulation/save` - Save simulation to database
 - `POST /api/report/generate` - Generate PDF report
 
-##  Database Schema
 
-### Simulations Table
-```sql
-CREATE TABLE simulations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT,
-    scheduler TEXT,
-    total_tasks INTEGER,
-    completed_tasks INTEGER,
-    avg_wait_time REAL,
-    avg_turnaround_time REAL,
-    total_cost REAL,
-    cpu_utilization REAL,
-    ram_utilization REAL
-)
-```
 
-### Tasks Table
-```sql
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    simulation_id INTEGER,
-    name TEXT,
-    cpu_required INTEGER,
-    ram_required INTEGER,
-    execution_time REAL,
-    priority INTEGER,
-    wait_time REAL,
-    turnaround_time REAL,
-    cost REAL,
-    FOREIGN KEY (simulation_id) REFERENCES simulations(id)
-)
-```
-
-## 📈 Performance Metrics
+##  Performance Metrics
 
 ### Calculated Statistics
 1. **Average Wait Time**: Time from task arrival to start execution
@@ -228,7 +195,7 @@ CREATE TABLE tasks (
 5. **Total Cost**: Sum of all task execution costs
 6. **Cost per Task**: Average cost across all completed tasks
 
-## 🔧 Configuration
+##  Configuration
 
 ### Cost Defaults (INR)
 - CPU Cost: ₹4.00 per core-hour
@@ -249,8 +216,8 @@ CREATE TABLE tasks (
 
 ##  Authors
 
-- Aanchal Singh - Backend and Scheduling(Partial)                - [YourGitHub](https://github.com/yourusername)
-- Shanya        - Frontend simulation                            - [YourGitHub](https://github.com/SHANYA77)
+- Aanchal Singh - Backend and Scheduling(Partial)                - 6https://github.com/Aanchal2208
+- Shanya        - Frontend simulation                            - https://github.com/SHANYA77
 - Shiwani       - Visualization and Scheduling(Partial)          - [YourGitHub](https://github.com/yourusername)
 - Tanisha Rawat - Data Storage and Reporting Documentation       - [YourGitHub](https://github.com/yourusername)
 
